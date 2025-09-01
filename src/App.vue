@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onErrorCaptured } from 'vue'
 import { useRouter } from 'vue-router'
 
 const isCollapse = ref(false)
@@ -9,8 +9,16 @@ const handleSelect = (key, keyPath) => {
   console.log(key, keyPath)
 }
 
-// 默认展开的子菜单13
+// 默认展开的子菜单
 const defaultOpeneds = ref(['1', '2', '3', '4', '5'])
+
+// 捕获子组件错误
+onErrorCaptured((error, instance, info) => {
+  console.error('Captured error:', error)
+  console.error('Error info:', info)
+  // 返回 false 阻止错误继续传播
+  return false
+})
 </script>
 
 <template>
@@ -41,27 +49,28 @@ const defaultOpeneds = ref(['1', '2', '3', '4', '5'])
         <el-sub-menu index="3">
           <template #title>
             <el-icon><Cpu /></el-icon>
-            <span>产线管理</span>
+            <span>工艺管理</span>
           </template>
-          <el-menu-item index="/production/list">产线列表</el-menu-item>
-          <el-menu-item index="/production/add">产线添加</el-menu-item>
+          <el-menu-item index="/production/list">工艺列表</el-menu-item>
+          <el-menu-item index="/production/add">工艺添加</el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="4">
           <template #title>
             <el-icon><Setting /></el-icon>
-            <span>工艺管理</span>
+            <span>设备管理</span>
           </template>
-          <el-menu-item index="/process/list">工艺列表</el-menu-item>
-          <el-menu-item index="/process/add">工艺录入</el-menu-item>
+          <el-menu-item index="/process/list">工艺设备</el-menu-item>
+          <el-menu-item index="/process/add">设备录入</el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="5">
           <template #title>
             <el-icon><House /></el-icon>
-            <span>模拟工厂</span>
+            <span>产线模拟</span>
           </template>
-          <el-menu-item index="/factory/list">产品列表</el-menu-item>
+          <el-menu-item index="/factory/list">产线列表</el-menu-item>
+          <el-menu-item index="/factory/config">产线配置</el-menu-item>
           <el-menu-item index="/factory/other">其他</el-menu-item>
         </el-sub-menu>
       </el-menu>
@@ -70,7 +79,9 @@ const defaultOpeneds = ref(['1', '2', '3', '4', '5'])
     <el-container>
       <el-header>芯片产线管理系统</el-header>
       <el-main>
-        <router-view></router-view>
+        <router-view v-slot="{ Component }">
+          <component :is="Component" :key="$route.path" />
+        </router-view>
       </el-main>
     </el-container>
   </el-container>
@@ -78,7 +89,9 @@ const defaultOpeneds = ref(['1', '2', '3', '4', '5'])
 
 <style scoped>
 .layout-container {
+  
   height: 100vh;
+  width: 99vw;
 }
 
 .el-header {
@@ -100,6 +113,7 @@ const defaultOpeneds = ref(['1', '2', '3', '4', '5'])
 }
 
 .el-main {
+  /* width: 100vw; */
   background-color: #E9EEF3;
   color: #333;
   padding: 20px;

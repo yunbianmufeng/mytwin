@@ -37,6 +37,11 @@ const routes = [
         path: 'add',
         name: 'ProductionAdd',
         component: () => import('../views/production/ProductionAdd.vue')
+      },
+      {
+        path: 'edit/:id',
+        name: 'ProductionEdit',
+        component: () => import('../views/production/ProductionAdd.vue')
       }
     ]
   },
@@ -54,6 +59,16 @@ const routes = [
         path: 'add',
         name: 'ProcessAdd',
         component: () => import('../views/process/ProcessAdd.vue')
+      },
+      {
+        path: 'detail/:id',
+        name: 'ProcessDetail',
+        component: () => import('../views/process/ProcessDetail.vue')
+      },
+      {
+        path: 'edit/:id',
+        name: 'ProcessEdit',
+        component: () => import('../views/process/ProcessAdd.vue')
       }
     ]
   },
@@ -66,6 +81,21 @@ const routes = [
         path: 'list',
         name: 'ProductList',
         component: () => import('../views/factory/ProductList.vue')
+      },
+      {
+        path: 'config',
+        name: 'ProductConfig',
+        component: () => import('../views/factory/ProductConfig.vue')
+      },
+      {
+        path: 'config/:id',
+        name: 'ProductConfigEdit',
+        component: () => import('../views/factory/ProductConfig.vue')
+      },
+      {
+        path: 'simulation',
+        name: 'Simulation',
+        component: () => import('../views/factory/Simulation.vue')
       },
       {
         path: 'other',

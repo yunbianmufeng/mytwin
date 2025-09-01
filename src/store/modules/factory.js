@@ -1,4 +1,6 @@
-// 模拟工厂模块
+import { db } from '../../utils/indexedDB'
+
+// 工厂模块
 export default {
   namespaced: true,
 
@@ -32,9 +34,9 @@ export default {
     // 获取产品列表
     async fetchProducts({ commit }) {
       try {
-        // TODO: 实际项目中这里应该调用API
-        const response = await mockFetchProducts()
-        commit('SET_PRODUCTS', response)
+        // 从 IndexedDB 获取产品列表
+        const products = await db.getAll('products')
+        commit('SET_PRODUCTS', products)
       } catch (error) {
         console.error('获取产品列表失败:', error)
         throw error
@@ -44,10 +46,16 @@ export default {
     // 添加产品
     async addProduct({ commit }, product) {
       try {
-        // TODO: 实际项目中这里应该调用API
-        const response = await mockAddProduct(product)
-        commit('ADD_PRODUCT', response)
-        return response
+        const newProduct = {
+          ...product,
+          id: Date.now(),
+          createTime: new Date().toISOString(),
+          updateTime: new Date().toISOString()
+        }
+        // 保存到 IndexedDB
+        await db.put('products', newProduct)
+        commit('ADD_PRODUCT', newProduct)
+        return newProduct
       } catch (error) {
         console.error('添加产品失败:', error)
         throw error
@@ -57,10 +65,15 @@ export default {
     // 更新产品
     async updateProduct({ commit }, { id, updates }) {
       try {
-        // TODO: 实际项目中这里应该调用API
-        const response = await mockUpdateProduct(id, updates)
-        commit('UPDATE_PRODUCT', { id, updates: response })
-        return response
+        const updatedProduct = {
+          ...updates,
+          id,
+          updateTime: new Date().toISOString()
+        }
+        // 更新到 IndexedDB
+        await db.put('products', updatedProduct)
+        commit('UPDATE_PRODUCT', { id, updates: updatedProduct })
+        return updatedProduct
       } catch (error) {
         console.error('更新产品失败:', error)
         throw error
@@ -70,8 +83,8 @@ export default {
     // 删除产品
     async deleteProduct({ commit }, id) {
       try {
-        // TODO: 实际项目中这里应该调用API
-        await mockDeleteProduct(id)
+        // 从 IndexedDB 删除
+        await db.delete('products', id)
         commit('DELETE_PRODUCT', id)
       } catch (error) {
         console.error('删除产品失败:', error)

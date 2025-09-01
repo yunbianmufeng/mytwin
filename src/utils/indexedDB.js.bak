@@ -1,0 +1,246 @@
+// IndexedDB 工具类
+export class IndexedDBUtil {
+  constructor(dbName, version = 2) {
+    this.dbName = dbName
+    this.version = version
+    this.db = null
+    this.initPromise = null
+  }
+
+  // 打开数据库
+  async openDB() {
+    // 如果已经有一个初始化过程在进行，返回该Promise
+    if (this.initPromise) {
+      return this.initPromise
+    }
+
+    // 如果数据库已经打开，先关闭它
+    if (this.db) {
+      this.db.close()
+      this.db = null
+    }
+
+    this.initPromise = new Promise((resolve, reject) => {
+      try {
+        const request = indexedDB.open(this.dbName, this.version)
+
+        request.onerror = () => {
+          this.initPromise = null
+          console.error('打开数据库失败:', request.error)
+          reject(request.error)
+        }
+
+        request.onsuccess = () => {
+          this.db = request.result
+          this.initPromise = null
+
+          // 添加错误处理
+          this.db.onerror = (event) => {
+            console.error('数据库错误:', event.target.error)
+          }
+
+          resolve(this.db)
+        }
+
+        request.onupgradeneeded = (event) => {
+          console.log('数据库升级中...')
+          const db = event.target.result
+
+          // 创建对象仓库
+          if (!db.objectStoreNames.contains('processes')) {
+            console.log('创建 processes store')
+            db.createObjectStore('processes', { keyPath: 'id' })
+          }
+          if (!db.objectStoreNames.contains('products')) {
+            console.log('创建 products store')
+            db.createObjectStore('products', { keyPath: 'id' })
+          }
+          if (!db.objectStoreNames.contains('productConfigs')) {
+            console.log('创建 productConfigs store')
+            db.createObjectStore('productConfigs', { keyPath: 'id' })
+          }
+        }
+
+        request.onblocked = () => {
+          this.initPromise = null
+          console.error('数据库被阻塞')
+          reject(new Error('数据库被阻塞'))
+        }
+      } catch (error) {
+        this.initPromise = null
+        console.error('初始化数据库时发生错误:', error)
+        reject(error)
+      }
+    })
+
+    return this.initPromise
+  }
+    })
+  }
+
+  // 获取所有数据
+  async getAll(storeName) {
+    await this.openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readonly')
+      const store = transaction.objectStore(storeName)
+      const request = store.getAll()
+
+      request.onerror = () => {
+        reject(request.error)
+      }
+
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
+    })
+  }
+
+  // 清理数据，移除不可序列化的属性
+  cleanData(data) {
+    // 如果是数组，递归清理每个元素
+    if (Array.isArray(data)) {
+      return data.map(item => this.cleanData(item))
+    }
+    
+    // 如果是对象，创建新的纯对象
+    if (data && typeof data === 'object') {
+      const cleanObj = {}
+      for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+          const value = data[key]
+          // 递归清理嵌套对象
+          cleanObj[key] = this.cleanData(value)
+        }
+      }
+      return cleanObj
+    }
+    
+    // 基本类型直接返回
+    return data
+  }
+
+  // 添加或更新数据
+  async put(storeName, data) {
+    await this.openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readwrite')
+      const store = transaction.objectStore(storeName)
+      // 清理数据后再存储
+      const cleanedData = this.cleanData(data)
+      const request = store.put(cleanedData)
+
+      request.onerror = () => {
+        reject(request.error)
+      }
+
+      request.onsuccess = () => {
+        resolve(request.result)
+      }
+    })
+  }
+
+  // 添加多条数据
+  async putMany(storeName, items) {
+    await this.openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readwrite')
+      const store = transaction.objectStore(storeName)
+      
+      let completed = 0
+      let errors = []
+
+      // 清理数据后再存储
+      const cleanedItems = this.cleanData(items)
+      cleanedItems.forEach(item => {
+        const request = store.put(item)
+        
+        request.onsuccess = () => {
+          completed++
+          if (completed === items.length) {
+            if (errors.length > 0) {
+              reject(errors)
+            } else {
+              resolve()
+            }
+          }
+        }
+
+        request.onerror = () => {
+          errors.push(request.error)
+          completed++
+          if (completed === items.length) {
+            reject(errors)
+          }
+        }
+      })
+
+      transaction.oncomplete = () => {
+        resolve()
+      }
+
+      transaction.onerror = () => {
+        reject(transaction.error)
+      }
+    })
+  }
+
+  // 删除数据
+  async delete(storeName, id) {
+    await this.openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readwrite')
+      const store = transaction.objectStore(storeName)
+      const request = store.delete(id)
+
+      request.onerror = () => {
+        reject(request.error)
+      }
+
+      request.onsuccess = () => {
+        resolve()
+      }
+    })
+  }
+
+  // 清空存储对象
+  async clear(storeName) {
+    await this.openDB()
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(storeName, 'readwrite')
+      const store = transaction.objectStore(storeName)
+      const request = store.clear()
+
+      request.onerror = () => {
+        reject(request.error)
+      }
+
+      request.onsuccess = () => {
+        resolve()
+      }
+    })
+  }
+}
+
+// 创建单例实例
+export const db = new IndexedDBUtil('mytwin', 1)
+
+// 数据迁移函数
+export async function migrateFromLocalStorage(key, storeName) {
+  try {
+    // 从 localStorage 读取数据
+    const data = localStorage.getItem(key)
+    if (data) {
+      const items = JSON.parse(data)
+      if (Array.isArray(items)) {
+        // 将数据写入 IndexedDB
+        await db.putMany(storeName, items)
+        // 迁移成功后可以选择清除 localStorage 中的数据
+        // localStorage.removeItem(key)
+      }
+    }
+  } catch (error) {
+    console.error('数据迁移失败:', error)
+    throw error
+  }
+}

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unity WebGL Player | ProductionLineSimulation</title>
+    <!-- <link rel="shortcut icon" href="TemplateData/favicon.ico"> -->
+    <link rel="stylesheet" href="TemplateData/style.css">
+</head>
+<body>
+    <div id="unity-container" class="unity-desktop">
+        <canvas id="unity-canvas"></canvas>
+        <div id="unity-loading-bar">
+            <div id="unity-logo"></div>
+            <div id="unity-progress-bar-empty">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+        </div>
+        <div id="unity-warning"> </div>
+        <div id="unity-footer">
+            <div id="unity-webgl-logo"></div>
+            <div id="unity-fullscreen-button"></div>
+            <div id="unity-build-title">生产线仿真系统</div>
+        </div>
+    </div>
+    
+    <script>
+        // Unity WebGL 实例
+        var unityInstance = null;
+        
+        var container = document.querySelector("#unity-container");
+        var canvas = document.querySelector("#unity-canvas");
+        var loadingBar = document.querySelector("#unity-loading-bar");
+        var progressBarFull = document.querySelector("#unity-progress-bar-full");
+        var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+        var warningBanner = document.querySelector("#unity-warning");
+
+        // 显示警告信息的函数
+        function unityShowBanner(msg, type) {
+            function updateBannerVisibility() {
+                warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+            }
+            var div = document.createElement('div');
+            div.innerHTML = msg;
+            warningBanner.appendChild(div);
+            if (type == 'error') div.style = 'background: red; padding: 10px;';
+            else {
+                if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+                setTimeout(function() {
+                    warningBanner.removeChild(div);
+                    updateBannerVisibility();
+                }, 5000);
+            }
+            updateBannerVisibility();
+        }
+
+        var buildUrl = "Build";
+        var loaderUrl = buildUrl + "/Build.loader.js";
+        var config = {
+            dataUrl: buildUrl + "/Build.data.unityweb",
+            frameworkUrl: buildUrl + "/Build.framework.js.unityweb",
+            codeUrl: buildUrl + "/Build.wasm.unityweb",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "MyTwin",
+            productName: "ProductionLineSimulation",
+            productVersion: "1.0.0",
+            showBanner: unityShowBanner,
+        };
+
+        // 如果在移动设备上，调整canvas大小
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+            document.getElementsByTagName('head')[0].appendChild(meta);
+            container.className = "unity-mobile";
+            canvas.className = "unity-mobile";
+
+            // 避免键盘显示时的问题
+            unityShowBanner('WebGL builds are not supported on mobile devices.');
+        } else {
+            // 桌面设备设置 - 让canvas自适应容器大小
+            canvas.style.width = "100%";
+            canvas.style.height = "100%";
+            canvas.style.display = "block";
+        }
+
+        loadingBar.style.display = "block";
+
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+                progressBarFull.style.width = 100 * progress + "%";
+            }).then((instance) => {
+                unityInstance = instance;
+                loadingBar.style.display = "none";
+                fullscreenButton.onclick = () => {
+                    unityInstance.SetFullscreen(1);
+                };
+                console.log("Unity WebGL 加载完成");
+                
+                // 通知父窗口WebGL加载完成
+                if (window.parent !== window) {
+                    window.parent.postMessage('unity-loaded', '*');
+                }
+            }).catch((message) => {
+                console.error("Unity WebGL 加载失败:", message);
+                alert(message);
+            });
+        };
+
+        document.body.appendChild(script);
+
+        // 全局方法供外部调用
+        window.SendMessage = function(gameObjectName, methodName, value) {
+            if (unityInstance) {
+                console.log("向Unity发送消息:", gameObjectName, methodName, value);
+                unityInstance.SendMessage(gameObjectName, methodName, value);
+            } else {
+                console.error("Unity实例未准备好");
+            }
+        };
+
+        // 接收来自Vue的消息
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'unity-command') {
+                var data = event.data;
+                SendMessage(data.gameObject, data.method, data.value);
+            }
+        });
+
+        // 向Vue发送消息的方法
+        window.SendMessageToVue = function(message) {
+            if (window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'unity-message',
+                    data: message
+                }, '*');
+            }
+        };
+    </script>
+</body>
+</html>
